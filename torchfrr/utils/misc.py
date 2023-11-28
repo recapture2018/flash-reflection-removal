@@ -30,14 +30,12 @@ class AvgDict(object):
         if len(self.data) == 0:
             for k, v in new_input.items():
                 if not isinstance(v, float):
-                    raise NotImplementedError(
-                        "invalid data {}: {}".format(k, type(v)))
+                    raise NotImplementedError(f"invalid data {k}: {type(v)}")
                 self.data[k] = v
         else:
             for k, v in new_input.items():
                 if not isinstance(v, float):
-                    raise NotImplementedError(
-                        "invalid data {}: {}".format(k, type(v)))
+                    raise NotImplementedError(f"invalid data {k}: {type(v)}")
                 self.data[k] += v
 
     def mean(self):

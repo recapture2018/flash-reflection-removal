@@ -16,34 +16,32 @@ from glob import glob
 
 def prepare_data(data_path='../data_new/Data_Polar_Clean/crop_npy/'):
     train_items, val_items = [], []
-    folders1 = glob(data_path+'/*')
+    folders1 = glob(f'{data_path}/*')
 #    print(folders1)
     folders2 = []
     for folder1 in folders1:
-        folders2 = folders2 + glob(folder1+'/Indoor/*') + glob(folder1+'/Outdoor/*')
+        folders2 = (
+            folders2
+            + glob(f'{folder1}/Indoor/*')
+            + glob(f'{folder1}/Outdoor/*')
+        )
 #    print(folders2) 
-    folders2.sort()   
+    folders2.sort()
     for folder2 in folders2[1::5] + folders2[2::5]+folders2[3::5]+folders2[4::5]:
         folder = folder2
-        imgs = glob(folder + '/*.npy')
+        imgs = glob(f'{folder}/*.npy')
         imgs.sort()
      #   print(folder, len(imgs))
         for idx in range(len(imgs)//2):
             tmp_M = imgs[2*idx+1] 
             tmp_R = imgs[2*idx]
             train_items.append([tmp_M,tmp_R])
-      #      print(tmp_R, tmp_M)
-
     for folder2 in folders2[::5]: 
         folder = folder2
-        imgs = glob(folder + '/*.npy')
+        imgs = glob(f'{folder}/*.npy')
         imgs.sort()
         print(folder, len(imgs))
-        for idx in range(len(imgs)//2):
-            tmp_M = imgs[2*idx+1] 
-            tmp_R = imgs[2*idx]
-            val_items.append([tmp_M,tmp_R])
-       #     print(tmp_R, tmp_M)
+        val_items.extend([imgs[2*idx+1], imgs[2*idx]] for idx in range(len(imgs)//2))
     return train_items, val_items[::3]
 
 def prepare_final_data(data_path='../data_new/Data_Polar_Clean/crop_npy/'):
@@ -54,24 +52,15 @@ def prepare_final_data(data_path='../data_new/Data_Polar_Clean/crop_npy/'):
         tmp_M = imgs[2*idx+1] 
         tmp_R = imgs[2*idx]
         train_items.append([tmp_M,tmp_R])
-      #      print(tmp_R, tmp_M)
-
     imgs = glob("../data_new/Data_Polar_Clean/MMR_1/test/*npy")
     imgs.sort()
     for idx in range(len(imgs)//2):
         tmp_M = imgs[2*idx+1] 
         tmp_R = imgs[2*idx]
         test_items.append([tmp_M,tmp_R])
-      #      print(tmp_R, tmp_M)
-
     imgs = glob("../data_new/Data_Polar_Clean/MMR_1/val/*npy")
     imgs.sort()
-    for idx in range(len(imgs)//2):
-        tmp_M = imgs[2*idx+1] 
-        tmp_R = imgs[2*idx]
-        val_items.append([tmp_M,tmp_R])
-      #      print(tmp_R, tmp_M)
-
+    val_items.extend([imgs[2*idx+1], imgs[2*idx]] for idx in range(len(imgs)//2))
     return train_items, val_items, test_items
 
 def prepare_item(item):
@@ -92,8 +81,7 @@ def light_mask(h, w):
     mat = np.power(mat1*mat2, 2)
     # mat = np.power(mat, 1/2.2)
     sz = (20 + np.random.randint(20))*2 + 1
-    mask1=cv2.GaussianBlur(mat,(sz,sz),cv2.BORDER_DEFAULT)
-    return mask1
+    return cv2.GaussianBlur(mat,(sz,sz),cv2.BORDER_DEFAULT)
 
 def shadow_mask(img):                                                        
     h_orig,w_orig = img.shape[:2]
@@ -214,10 +202,9 @@ def save_concat_img(gt_input, gt_target, gt_reflection, pureflash, pred_image_t,
     return out_img
 
 def save_results(all_loss_test, metrics, id, task,epoch):
-    result=open("result/%s/score.txt"%task,'a')
-    result.write("Epc: %03d Loss: %.5f | SSIM: %.3f PSNR: %.2f | SSIM: %.3f PSNR: %.2f \n"%\
-        (epoch, np.mean(all_loss_test[np.where(all_loss_test)]), metrics["T_ssim"]/(id+1), metrics["T_psnr"]/(id+1), metrics["R_ssim"]/(id+1), metrics["R_psnr"]/(id+1)))
-    result.close()
+    with open(f"result/{task}/score.txt", 'a') as result:
+        result.write("Epc: %03d Loss: %.5f | SSIM: %.3f PSNR: %.2f | SSIM: %.3f PSNR: %.2f \n"%\
+            (epoch, np.mean(all_loss_test[np.where(all_loss_test)]), metrics["T_ssim"]/(id+1), metrics["T_psnr"]/(id+1), metrics["R_ssim"]/(id+1), metrics["R_psnr"]/(id+1)))
 
 def crop_shape(tmp_all, size=32):
     h,w = tmp_all.shape[1:3]
@@ -238,15 +225,51 @@ def cnts_add_display(epoch, cnts, step,crt, crt_t, st):
 
 
 def save_all_out(output, path_prefix, HSV=0, I14=0,AoLP=0,DoLP=0):
-    sic.imsave("%s_I.jpg"%path_prefix,np.uint8(np.maximum(np.minimum(output[0,:,:,4]*255.0,255.0),0.0)))
+    sic.imsave(
+        f"{path_prefix}_I.jpg",
+        np.uint8(
+            np.maximum(np.minimum(output[0, :, :, 4] * 255.0, 255.0), 0.0)
+        ),
+    )
     if I14:
-        sic.imsave("%s_I14.jpg"%path_prefix,np.uint8(np.maximum(np.minimum(np.concatenate([output[0,:,:,i] for i in range(4)],axis=0)*255.0,255.0),0.0)))
+        sic.imsave(
+            f"{path_prefix}_I14.jpg",
+            np.uint8(
+                np.maximum(
+                    np.minimum(
+                        np.concatenate(
+                            [output[0, :, :, i] for i in range(4)], axis=0
+                        )
+                        * 255.0,
+                        255.0,
+                    ),
+                    0.0,
+                )
+            ),
+        )
     if HSV:
-        sic.imsave("%s_HSV.jpg"%path_prefix,np.uint8(np.maximum(np.minimum(output[0,:,:,-3:]*255.0,255.0),0.0)))
+        sic.imsave(
+            f"{path_prefix}_HSV.jpg",
+            np.uint8(
+                np.maximum(
+                    np.minimum(output[0, :, :, -3:] * 255.0, 255.0), 0.0
+                )
+            ),
+        )
     if AoLP:
-        sic.imsave("%s_AoLP.jpg"%path_prefix,np.uint8(np.maximum(np.minimum(output[0,:,:,6]*255.0,255.0),0.0)))
+        sic.imsave(
+            f"{path_prefix}_AoLP.jpg",
+            np.uint8(
+                np.maximum(np.minimum(output[0, :, :, 6] * 255.0, 255.0), 0.0)
+            ),
+        )
     if DoLP:
-        sic.imsave("%s_DoLP.jpg"%path_prefix,np.uint8(np.maximum(np.minimum(output[0,:,:,5]*255.0,255.0),0.0)))
+        sic.imsave(
+            f"{path_prefix}_DoLP.jpg",
+            np.uint8(
+                np.maximum(np.minimum(output[0, :, :, 5] * 255.0, 255.0), 0.0)
+            ),
+        )
 
 def get_input(path, id):
     raw_in_name = path + '/in/%04d.png'%id
@@ -280,10 +303,7 @@ def load_data(train_path, test_path, train_num, test_num):
     return train_in, train_out, test_in, test_out
 
 def get_from_raw(raw_name, raw=True):
-    if raw:
-        raw_img = read_raw(raw_name)
-    else:
-        raw_img = sic.imread(raw_name, mode='L')/255.
+    raw_img = read_raw(raw_name) if raw else sic.imread(raw_name, mode='L')/255.
 #    print(np.mean(raw_img))
 #    print(raw_name, raw_img.shape)
 
@@ -358,14 +378,12 @@ def ad_new(raw):
 
 def vis_ADoLP(AoLP, DoLP):
     hsv = np.concatenate([AoLP[:,:,np.newaxis], DoLP[:,:,np.newaxis], np.ones([AoLP.shape[0], AoLP.shape[1], 1])],axis=2)
-    rgb = hsv_to_rgb(hsv)
-    return   rgb
+    return hsv_to_rgb(hsv)
 
 def vis_ADI(raw):
     AoLP, DoLP, I=raw[:,:,2],raw[:,:,1],raw[:,:,0]
     hsv = np.concatenate([AoLP[:,:,np.newaxis], DoLP[:,:,np.newaxis], I[:,:,np.newaxis]],axis=2)
-    rgb = hsv_to_rgb(hsv)
-    return  rgb
+    return hsv_to_rgb(hsv)
 
 
 def read_uint12_12p(path):
@@ -378,14 +396,14 @@ def read_uint12_12p(path):
 def read_raw(path, imageSize = (2048, 2448)):
     npimg = np.fromfile(path, dtype=np.uint16).astype("float32")
     unit = float(npimg.shape[0])/(2048*2448)
-    if unit == 1:
+    if unit == 0.5:
+        npimg = np.fromfile(path, dtype=np.uint8).astype("float32")
+        npimg /= 255.
+    elif unit == 1:
         if np.max(npimg)>4096:
             npimg /= 65535.
         else:
             npimg /= 4095.
-    elif unit== 0.5 :
-        npimg = np.fromfile(path, dtype=np.uint8).astype("float32")
-        npimg /= 255.
     else:
         npimg = np.float32(read_uint12_12p(path))/4095
     npimg = npimg.reshape(imageSize)
@@ -395,10 +413,7 @@ def read_raw(path, imageSize = (2048, 2448)):
 def whole_split(net_out):
     key = 'I1, I2, I3, I4, I, DoLP, AoLP, I_p, I_np'
     key = key.split(', ')
-    data_dict = {}
-    for i in range(9):
-        data_dict[key[i]] = net_out[0,:,:,i]
-    return data_dict
+    return {key[i]: net_out[0,:,:,i] for i in range(9)}
 
 def pols2difs(raw_img):
     I1, I2, I3, I4 = [raw_img[:,:,i] for i in range(4)]
@@ -490,11 +505,10 @@ def crop_augmentation(im_R, im_T):
 #    w_crop = 641#np.random.randint(640, 801)
 #    r = w_crop/w_orig
 #    h_crop = np.int(h_orig*r)
-    if size > 640:
-        size = 640
+    size = min(size, 640)
     w_crop = size
     h_crop = size
-    
+
     try:
         w_offset = np.random.randint(0, w_orig-w_crop)
         h_offset = np.random.randint(0, h_orig-h_crop)
@@ -510,15 +524,17 @@ def crop_augmentation_list(img_list):
     h_orig,w_orig = img_list[0].shape[1:3]
     h_crop = h_orig * 3 // 4 // 32 * 32
     w_crop = w_orig * 3 // 4 // 32 * 32
-    
+
     try:
         w_offset = np.random.randint(0, w_orig-w_crop)
         h_offset = np.random.randint(0, h_orig-h_crop)
     except:
         print("Original W %d, desired W %d"%(w_orig,w_crop))
         print("Original H %d, desired H %d"%(h_orig,h_crop))
-    crop_list = [img[:,h_offset:h_offset+h_crop,w_offset:w_offset+w_crop,:] for img in img_list]
-    return crop_list
+    return [
+        img[:, h_offset : h_offset + h_crop, w_offset : w_offset + w_crop, :]
+        for img in img_list
+    ]
            
 
 

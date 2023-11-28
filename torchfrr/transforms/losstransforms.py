@@ -30,8 +30,9 @@ class ImgsSsim:
 
     def __call__(self, data):
         for name, image_true, image_test in self.trips:
-            data['metrics']['ssim_' + name] = structural_similarity(
-                data['imgs'][image_true], data['imgs'][image_test])
+            data['metrics'][f'ssim_{name}'] = structural_similarity(
+                data['imgs'][image_true], data['imgs'][image_test]
+            )
         return data
 
 
@@ -46,9 +47,9 @@ class ImgsPsnr:
         for name, image_true, image_test in self.trips:
             psnr, err = peak_signal_noise_ratio(
                 data['imgs'][image_true], data['imgs'][image_test])
-            data['metrics']['psnr_' + name] = psnr
+            data['metrics'][f'psnr_{name}'] = psnr
             if self.err_map:
-                data['imgs']['err_' + name] = err.mean(dim=-3, keepdims=True)
+                data['imgs'][f'err_{name}'] = err.mean(dim=-3, keepdims=True)
         return data
 
 
@@ -64,7 +65,7 @@ class EndPointError:
             err_map = torch.sqrt(torch.sum((data['imgs'][image_true] -
                                             data['imgs'][image_test])**2, dim=-3, keepdim=True))
 
-            data['metrics']['epe_' + name] = err_map.mean()
+            data['metrics'][f'epe_{name}'] = err_map.mean()
             if self.err_map:
-                data['imgs']['epe_' + name] = err_map
+                data['imgs'][f'epe_{name}'] = err_map
         return data

@@ -94,12 +94,10 @@ class EpochMetricsLog:
         df_metric = pd.DataFrame(
             self.metrics_dict)
         df_metric.set_index('data_name', inplace=True)
-        df_metric.to_csv(
-            osp.join(self.epoch_dir, f"metrics.csv"))
+        df_metric.to_csv(osp.join(self.epoch_dir, "metrics.csv"))
         avg_metric = df_metric.groupby(
             'dataset_name').mean(numeric_only=True)
-        avg_metric.to_csv(osp.join(self.epoch_dir,
-                                   f"summary.csv"))
+        avg_metric.to_csv(osp.join(self.epoch_dir, "summary.csv"))
         avg_metric = {'_'.join([ds_name, k]): v
                       for ds_name, ds_loss in avg_metric.iterrows()
                       for k, v in ds_loss.items()}

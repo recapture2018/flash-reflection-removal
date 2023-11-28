@@ -15,14 +15,12 @@ def transform2module(trans):
     return Mod
 
 def get_model(name, args=(), kwargs={}):
-    # print(name, args, flush=True)
     if name in MODELS:
         return MODELS[name](*args, **kwargs)
-    else:
-        trans=TRANSFORMS[name]
-        if not issubclass(trans,nn.Module):
-            trans=transform2module(trans)
-        return trans(*args, **kwargs)
+    trans=TRANSFORMS[name]
+    if not issubclass(trans,nn.Module):
+        trans=transform2module(trans)
+    return trans(*args, **kwargs)
 
 
 def get_models(mls):

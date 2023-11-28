@@ -39,8 +39,7 @@ def structural_similarity(im1, im2, K1=0.01, K2=0.03, win_size=7, R=255):
                        vx + vy + C2))
     D = B1 * B2
     S = (A1 * A2) / D
-    ssim = S.mean()
-    return ssim
+    return S.mean()
 
 
 def peak_signal_noise_ratio(image_true, image_test, dmin=0, dmax=1):
@@ -53,11 +52,7 @@ def peak_signal_noise_ratio(image_true, image_test, dmin=0, dmax=1):
         raise ValueError(
             "im_true has intensity values outside the range expected for "
             "its data type.  Please manually specify the data_range")
-    if true_min >= 0:
-        data_range = dmax
-    else:
-        data_range = dmax - dmin
-
+    data_range = dmax if true_min >= 0 else dmax - dmin
     err = (image_true - image_test)**2
     if isinstance(image_true, np.ndarray):
         psnr = 10 * np.log10((data_range ** 2) / err.mean())

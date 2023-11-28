@@ -26,21 +26,19 @@ def Linearization(raw_bayer, exif_dict):
     white_level = exif_dict["WhiteLevel"]
     raw_bayer = raw_bayer.astype(np.float32)
     raw_bayer = (raw_bayer - black_level) / (white_level - black_level)
-    raw_linear = raw_bayer
-    return raw_linear
+    return raw_bayer
 
 def gamma_correction(rgb, gamma=2.2):
     return np.power(rgb, 1 / gamma)
 
 def get_matrix(m1, m2, tp1, tp2, tp):
     if (tp < tp1):
-        m = m1
+        return m1
     elif (tp > tp2):
-        m = m2
+        return m2
     else:
         g = (1/ float(tp) - 1 / float(tp2)) / (1 / float(tp1) - 1 / float(tp2))
-        m = g * m1 + (1-g) * m2
-    return m
+        return g * m1 + (1-g) * m2
 
 def WhiteBalance_ColorCalibration(rgb_demosaic, exif_dict):
     d50tosrgb = np.reshape(np.array([3.1338561, -1.6168667, -0.4906146, 
@@ -58,11 +56,11 @@ def WhiteBalance_ColorCalibration(rgb_demosaic, exif_dict):
     camera_calibration1 = tag2matrix(str(exif_dict["EXIF:CameraCalibration1"]))
     camera_calibration2 = tag2matrix(str(exif_dict["EXIF:CameraCalibration2"]))
     neutral_wb =tag2matrix(str(exif_dict["EXIF:AsShotNeutral"])) 
-    
+
     analog_balance = np.diag(np.asarray([float(i) for i in exif_dict["EXIF:AnalogBalance"].values])) #np.diag([1, 1, 1])
-    
-    
-    
+
+
+
     rgb_demosaic = np.concatenate([rgb_demosaic[...,0:1].clip(0,neutral_wb[0,0]), 
                                    rgb_demosaic[...,1:2].clip(0,neutral_wb[1,0]), 
                                    rgb_demosaic[...,2:3].clip(0,neutral_wb[2,0])], axis=2)
@@ -72,12 +70,8 @@ def WhiteBalance_ColorCalibration(rgb_demosaic, exif_dict):
     # D65
     temparature2 = 6500
 
-    if (exif_dict["EXIF:Make"] == "NIKON CORPORATION"):
+    if exif_dict["EXIF:Make"] in ["NIKON CORPORATION", "HUAWEI"]:
         image_temparatue = 4000#exif_dict["MakerNotes:ColorTemperatureAuto"]
-    elif (exif_dict["EXIF:Make"] == "HUAWEI"):
-        # hack for HUAWEI
-        image_temparatue = 4000
-
     forward_matrix = get_matrix(forward_matrix1, forward_matrix2, temparature1, temparature2, image_temparatue)
     camera_calibration = get_matrix(camera_calibration1, camera_calibration2, temparature1, temparature2, image_temparatue)
     rgb_reshaped = np.reshape(np.transpose(rgb_demosaic, (2,0,1)),(3,-1))
@@ -109,11 +103,11 @@ def tag2matrix(info):
             value_array.append(float(den) / float(num))
         else:
             value_array.append(float(value))
-    if len(value_list) == 9:
-        value_mat =  np.array(value_array).reshape([3,3])
-    else:
-        value_mat =  np.array(value_array).reshape([3,1])
-    return value_mat
+    return (
+        np.array(value_array).reshape([3, 3])
+        if len(value_list) == 9
+        else np.array(value_array).reshape([3, 1])
+    )
 
 def prepare_exifdict(raw_path):
     # Open image file for reading (binary mode)
@@ -148,14 +142,12 @@ def prepare_rawlinear(raw_path, norm = False):
         raw_nonexposure = raw_linear.copy()
         raw_nonexposure[raw_nonexposure>0.75] = 0
         raw_linear = raw_linear * (1.0 / raw_nonexposure.max())
-    rgb_demosaic = demosaic(raw_linear, exif_dict)
-    return rgb_demosaic
+    return demosaic(raw_linear, exif_dict)
 
 
 def process_raw_from_raw_linear(rgb_demosaic, exif_dict):
     orgshape_rgb_srgb = WhiteBalance_ColorCalibration(rgb_demosaic, exif_dict)
-    rgb_gamma = gamma_correction(orgshape_rgb_srgb)
-    return rgb_gamma
+    return gamma_correction(orgshape_rgb_srgb)
 
 
 def obtain_rgb_flashonly(path_A, path_B, raw_camera="Huawei", norm=False):    

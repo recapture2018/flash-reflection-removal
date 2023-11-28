@@ -41,9 +41,7 @@ def calculate_psnr(img1, img2):
     img1 = img1.astype(np.float64).clip(0,1)
     img2 = img2.astype(np.float64).clip(0,1)
     mse = np.mean((img1 - img2)**2)
-    if mse == 0:
-        return float('inf')
-    return 20 * math.log10(1.0 / math.sqrt(mse))
+    return float('inf') if mse == 0 else 20 * math.log10(1.0 / math.sqrt(mse))
 
 
 continue_training=True
@@ -61,16 +59,15 @@ def detect_shadow(ambient, flashonly):
     intensity_flashonly = tf.norm(flashonly, axis=3, keepdims=True)
     ambient_ratio = intensity_ambient / tf.reduce_mean(intensity_ambient)
     flashonly_ratio = intensity_flashonly / tf.reduce_mean(intensity_flashonly)
-    
+
     # Dark in PF but not dark in F
     pf_div_by_ambient = flashonly_ratio / (ambient_ratio+1e-5)
     shadow_mask = tf.cast(tf.less(pf_div_by_ambient, 0.8), tf.float32)
-    
+
     # Cannot be too bright in flashonly
     dark_mask = tf.cast(tf.less(intensity_flashonly, 0.3), tf.float32)
-    
-    mask = dark_mask * shadow_mask
-    return mask
+
+    return dark_mask * shadow_mask
 
 
 # set up the model and define the graph
@@ -121,16 +118,16 @@ config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 sess = tf.Session(config=config)
 sess.run(tf.global_variables_initializer())
-var_restore = [v for v in tf.trainable_variables()]
+var_restore = list(tf.trainable_variables())
 saver_restore = tf.train.Saver(var_restore)
-ckpt = tf.train.get_checkpoint_state('./result/'+model)
+ckpt = tf.train.get_checkpoint_state(f'./result/{model}')
 ######### Session #########
 
 
 print("[i] contain checkpoint: ", ckpt)
 if ckpt and continue_training:
-    saver_restore=tf.train.Saver([var for var in tf.trainable_variables()])
-    print('loaded '+ckpt.model_checkpoint_path)
+    saver_restore = tf.train.Saver(list(tf.trainable_variables()))
+    print(f'loaded {ckpt.model_checkpoint_path}')
     saver_restore.restore(sess,ckpt.model_checkpoint_path)
 
 
@@ -150,26 +147,25 @@ def validation():
     psnr = []
 
     txt_path = "./result/%s/%04d/psnr_ssim.txt"%(model, epoch)
-    f = open(txt_path,'w')
-    for id in range(len(img_names) // 5):
-        tmp_pureflash, tmp_ambient, tmp_flash, tmp_T, tmp_R = load_paired_data(img_names, id)
-        h,w = tmp_T.shape[1:3]
-        h = h // 32 * 32
-        w = w // 32 * 32
-        # tmp_T, tmp_R, tmp_ambient, tmp_pureflash, tmp_flash = tmp_T[:,:h:2,:w:2,:], tmp_R[:,:h:2,:w:2,:], tmp_ambient[:,:h:2,:w:2,:], tmp_pureflash[:,:h:2,:w:2,:], tmp_flash[:,:h:2,:w:2,:]
-        tmp_T, tmp_R, tmp_ambient, tmp_pureflash, tmp_flash = tmp_T[:,:h,:w,:], tmp_R[:,:h,:w,:], tmp_ambient[:,:h,:w,:], tmp_pureflash[:,:h,:w,:], tmp_flash[:,:h,:w,:]        
+    with open(txt_path,'w') as f:
+        for id in range(len(img_names) // 5):
+            tmp_pureflash, tmp_ambient, tmp_flash, tmp_T, tmp_R = load_paired_data(img_names, id)
+            h,w = tmp_T.shape[1:3]
+            h = h // 32 * 32
+            w = w // 32 * 32
+            # tmp_T, tmp_R, tmp_ambient, tmp_pureflash, tmp_flash = tmp_T[:,:h:2,:w:2,:], tmp_R[:,:h:2,:w:2,:], tmp_ambient[:,:h:2,:w:2,:], tmp_pureflash[:,:h:2,:w:2,:], tmp_flash[:,:h:2,:w:2,:]
+            tmp_T, tmp_R, tmp_ambient, tmp_pureflash, tmp_flash = tmp_T[:,:h,:w,:], tmp_R[:,:h,:w,:], tmp_ambient[:,:h,:w,:], tmp_pureflash[:,:h,:w,:], tmp_flash[:,:h,:w,:]        
 
-        fetch_list=[transmission_layer, reflection_layer, input_ambient, target, reflection, lossDict]
-        pred_image_t, pred_image_r, gt_input_ambient, gt_target, gt_reflection, crtDict=sess.run(fetch_list,
-            feed_dict={input_ambient:tmp_ambient, reflection:tmp_R, target:tmp_T, input_pureflash:tmp_pureflash, input_flash: tmp_flash})
-        print("Epc: %3d, shape of outputs: "%epoch, pred_image_t.shape, pred_image_r.shape)
-        tmp_psnr = calculate_psnr(pred_image_t[0], tmp_T[0])
-        psnr.append(tmp_psnr)
-        f.writelines('%s: %.6f\n'%(img_names[0], tmp_psnr))
-        utils.save_concat_img(gt_input_ambient, gt_target, gt_reflection, tmp_pureflash, pred_image_t,pred_image_r, "./result/%s/%04d/val_%06d.jpg"%(model, epoch, id))
-    mean_psnr = np.mean(psnr)
-    f.writelines('%s: %.6f\n'%("average", mean_psnr))
-    f.close()
+            fetch_list=[transmission_layer, reflection_layer, input_ambient, target, reflection, lossDict]
+            pred_image_t, pred_image_r, gt_input_ambient, gt_target, gt_reflection, crtDict=sess.run(fetch_list,
+                feed_dict={input_ambient:tmp_ambient, reflection:tmp_R, target:tmp_T, input_pureflash:tmp_pureflash, input_flash: tmp_flash})
+            print("Epc: %3d, shape of outputs: "%epoch, pred_image_t.shape, pred_image_r.shape)
+            tmp_psnr = calculate_psnr(pred_image_t[0], tmp_T[0])
+            psnr.append(tmp_psnr)
+            f.writelines('%s: %.6f\n'%(img_names[0], tmp_psnr))
+            utils.save_concat_img(gt_input_ambient, gt_target, gt_reflection, tmp_pureflash, pred_image_t,pred_image_r, "./result/%s/%04d/val_%06d.jpg"%(model, epoch, id))
+        mean_psnr = np.mean(psnr)
+        f.writelines('%s: %.6f\n'%("average", mean_psnr))
     return mean_psnr
 best_psnr = 0
 
@@ -182,12 +178,12 @@ for epoch in range(1,maxepoch):
         continue
     else:
         os.makedirs("./result/%s/%04d"%(model,epoch))
-	
+
     img_names1 = sorted(glob("./data/synthetic/with_corrn_reflection/train/others" + '/*'))
     img_names2 = sorted(glob("./data/synthetic/with_syn_reflection/train/others" + '/*'))
     img_names =  img_names1 + img_names2
     img_names +=  sorted(glob("./data/real_world/train/others" + '/*'))
-    train_num = 100 if DEBUG else len(img_names) // 5 
+    train_num = 100 if DEBUG else len(img_names) // 5
     if DEBUG:
         save_model_freq = 1
     for id in np.random.permutation(train_num):#():
@@ -217,12 +213,12 @@ for epoch in range(1,maxepoch):
     mean_psnr = validation()
     if mean_psnr > best_psnr:
         best_psnr = mean_psnr
-        print("mean: {:.2f}".format(mean_psnr))
+        print("mean: {:.2f}".format(best_psnr))
         print("best: {:.2f}".format(best_psnr))
-        saver.save(sess,"./result/%s/model.ckpt"%model)
+        saver.save(sess, f"./result/{model}/model.ckpt")
         saver.save(sess,"./result/%s/%04d/model.ckpt"%(model,epoch-1))
     if (is_test or (epoch % save_model_freq == 0 and epoch < 1000)):
-        saver.save(sess,"./result/%s/model.ckpt"%model)
+        saver.save(sess, f"./result/{model}/model.ckpt")
         saver.save(sess,"./result/%s/%04d/model.ckpt"%(model,epoch-1))
 
         img_names = sorted(glob("./data/synthetic/with_corrn_reflection/test/others" + '/*'))[:100]

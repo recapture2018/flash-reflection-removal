@@ -59,10 +59,7 @@ class RandCropImgs:
 class ToTensor:
     def __call__(self, data):
         for k, v in data['imgs'].items():
-            if len(v.shape) == 3:
-                v = v.transpose((2, 0, 1))
-            else:
-                v = v[np.newaxis, :, :]
+            v = v.transpose((2, 0, 1)) if len(v.shape) == 3 else v[np.newaxis, :, :]
             data['imgs'][k] = torch.from_numpy(
                 v.astype(np.float32)).contiguous()
         return data

@@ -44,10 +44,7 @@ def get_cfg(mode):
     cfg = load_omgcfg(args.cfg)
     cfg.merge_with_dotlist(args.opts)
     cfg.CFG = args.cfg
-    if args.gpu:
-        cfg.GPU = args.gpu
-    else:
-        cfg.GPU = os.environ["CUDA_VISIBLE_DEVICES"][0]
+    cfg.GPU = args.gpu if args.gpu else os.environ["CUDA_VISIBLE_DEVICES"][0]
     cfg.MODE = mode
     head, name = osp.split(osp.splitext(args.cfg)[0])
     phase = osp.split(head)[1]

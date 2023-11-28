@@ -48,7 +48,7 @@ def get_exif(path):
 def imread(path: str):
     """Read image unchanged
         Read rotated raw demosaic as RGBG - blacklevel """
-    if path[-4:] == '.dng':
+    if path.endswith('.dng'):
         exif = get_exif(path)
         black_level = exif['Image BlackLevel'].values
         white_level = exif["Image WhiteLevel"].values
@@ -146,11 +146,9 @@ def get_ckpt(ckpt_dir, epoch):
         return
 
     if epoch < 0:
-        ckpt = sorted(ckpts)[-1]
-    else:
-        name = utils.config.cfg.NAME
-        ckpt = f'{name}_{epoch:04d}.pth'
-    return ckpt
+        return sorted(ckpts)[-1]
+    name = utils.config.cfg.NAME
+    return f'{name}_{epoch:04d}.pth'
 
 
 def resume_ckpt(ckpt_dir, epoch, model, opt=None):

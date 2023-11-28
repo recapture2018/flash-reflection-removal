@@ -39,8 +39,9 @@ class ImgsLpips:
 
     def __call__(self, data):
         for name, image_true, image_test in self.trips:
-            data['metrics'][ 'lpips_' + name] = self.loss_fn(
-                data['imgs'][image_true], data['imgs'][image_test])
+            data['metrics'][f'lpips_{name}'] = self.loss_fn(
+                data['imgs'][image_true], data['imgs'][image_test]
+            )
         return data
 
 

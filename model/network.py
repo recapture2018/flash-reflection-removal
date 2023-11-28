@@ -42,19 +42,47 @@ def bilinear_resize_and_concat(x1, x2, output_channel, scope):
 
 
 def conv2upconcat(x1, x2, output_channel, scope):
-    up1 = bilinear_resize_and_concat(x1, x2, output_channel=output_channel, scope=scope + '_up')
-    conv6 = slim.conv2d(up1, output_channel, kernel_size=3, activation_fn=tf.nn.relu,
-                        weights_initializer=ini, scope=scope + '_1')
-    conv6 = slim.conv2d(conv6, output_channel, kernel_size=3, activation_fn=tf.nn.relu,
-                        weights_initializer=ini, scope=scope + '_2')
+    up1 = bilinear_resize_and_concat(
+        x1, x2, output_channel=output_channel, scope=f'{scope}_up'
+    )
+    conv6 = slim.conv2d(
+        up1,
+        output_channel,
+        kernel_size=3,
+        activation_fn=tf.nn.relu,
+        weights_initializer=ini,
+        scope=f'{scope}_1',
+    )
+    conv6 = slim.conv2d(
+        conv6,
+        output_channel,
+        kernel_size=3,
+        activation_fn=tf.nn.relu,
+        weights_initializer=ini,
+        scope=f'{scope}_2',
+    )
     return conv6
 
 
 def conv2pool(input, channel, ext):
-    conv1 = slim.conv2d(input, channel, kernel_size=3, rate=1, activation_fn=tf.nn.relu,
-                        weights_initializer=ini, scope=ext + '_1')
-    conv1 = slim.conv2d(conv1, channel, kernel_size=3, rate=1, activation_fn=tf.nn.relu,
-                        weights_initializer=ini, scope=ext + '_2')
+    conv1 = slim.conv2d(
+        input,
+        channel,
+        kernel_size=3,
+        rate=1,
+        activation_fn=tf.nn.relu,
+        weights_initializer=ini,
+        scope=f'{ext}_1',
+    )
+    conv1 = slim.conv2d(
+        conv1,
+        channel,
+        kernel_size=3,
+        rate=1,
+        activation_fn=tf.nn.relu,
+        weights_initializer=ini,
+        scope=f'{ext}_2',
+    )
     max_pool1 = slim.max_pool2d(conv1, [2, 2], stride=2, padding='SAME')
     return conv1, max_pool1
 
@@ -76,27 +104,81 @@ def UNet_2decoders(input, channel=32, output_channel=3, directions=4, reuse=Fals
     if reuse:
         tf.get_variable_scope().reuse_variables()
     # input size is (1, 1024, 1216, 90) (1, 256, 256, 10)
-    conv1 = slim.conv2d(input, channel, [1, 1], rate=1, activation_fn=tf.nn.relu,
-                        weights_initializer=ini, scope=ext + 'g_conv1_1')
-    conv1 = slim.conv2d(conv1, channel, [3, 3], rate=1, activation_fn=tf.nn.relu,
-                        weights_initializer=ini, scope=ext + 'g_conv1_2')
+    conv1 = slim.conv2d(
+        input,
+        channel,
+        [1, 1],
+        rate=1,
+        activation_fn=tf.nn.relu,
+        weights_initializer=ini,
+        scope=f'{ext}g_conv1_1',
+    )
+    conv1 = slim.conv2d(
+        conv1,
+        channel,
+        [3, 3],
+        rate=1,
+        activation_fn=tf.nn.relu,
+        weights_initializer=ini,
+        scope=f'{ext}g_conv1_2',
+    )
     pool1 = slim.max_pool2d(conv1, [2, 2], stride=2, padding='SAME')  # (1, 512, 608, 32) (1, 128, 128, 32)
-    conv2, pool2 = conv2pool(pool1, channel * 2, ext=ext + 'g_conv2')  # (1, 256, 304, 64) (1, 64, 64, 64)
-    conv3, pool3 = conv2pool(pool2, channel * 4, ext=ext + 'g_conv3')  # (1, 128, 152, 128) (1, 32, 32, 128)
-    conv4, pool4 = conv2pool(pool3, channel * 8, ext=ext + 'g_conv4')  # (1, 64, 76, 256) (1, 16, 16, 256)
-    conv5 = slim.conv2d(pool4, channel * 16, [3, 3], rate=1, activation_fn=tf.nn.relu,
-                        weights_initializer=ini, scope=ext + 'g_conv5_1')
-    conv5 = slim.conv2d(conv5, channel * 16, [3, 3], rate=1, activation_fn=tf.nn.relu,
-                        weights_initializer=ini, scope=ext + 'g_conv5_2')  # (1, 64, 76, 512) (1, 16, 16, 512)
+    conv2, pool2 = conv2pool(pool1, channel * 2, ext=f'{ext}g_conv2')
+    conv3, pool3 = conv2pool(pool2, channel * 4, ext=f'{ext}g_conv3')
+    conv4, pool4 = conv2pool(pool3, channel * 8, ext=f'{ext}g_conv4')
+    conv5 = slim.conv2d(
+        pool4,
+        channel * 16,
+        [3, 3],
+        rate=1,
+        activation_fn=tf.nn.relu,
+        weights_initializer=ini,
+        scope=f'{ext}g_conv5_1',
+    )
+    conv5 = slim.conv2d(
+        conv5,
+        channel * 16,
+        [3, 3],
+        rate=1,
+        activation_fn=tf.nn.relu,
+        weights_initializer=ini,
+        scope=f'{ext}g_conv5_2',
+    )
     with tf.variable_scope('lights'):
         light_ext = "light_"
-        BRDF_conv6 = conv2upconcat(conv5, conv4, output_channel=channel * 8, scope=light_ext+'g_conv6')
+        BRDF_conv6 = conv2upconcat(
+            conv5,
+            conv4,
+            output_channel=channel * 8,
+            scope=f'{light_ext}g_conv6',
+        )
         # (1, 128, 152, 256)
-        BRDF_conv7 = conv2upconcat(BRDF_conv6, conv3, output_channel=channel * 4, scope=light_ext+'g_conv7')  # (1, 256, 304, 128)
-        BRDF_conv8 = conv2upconcat(BRDF_conv7, conv2, output_channel=channel * 2, scope=light_ext+'g_conv8')  # (1, 512, 608, 64)
-        BRDF_conv9 = conv2upconcat(BRDF_conv8, conv1, output_channel=channel, scope=light_ext+'g_conv9')  # (1, 1024, 1216, 32)
-        pred_reflect = slim.conv2d(BRDF_conv9, 3, kernel_size=3, activation_fn=None,
-                            weights_initializer=ini, scope=light_ext+'g_conv9_3')
+        BRDF_conv7 = conv2upconcat(
+            BRDF_conv6,
+            conv3,
+            output_channel=channel * 4,
+            scope=f'{light_ext}g_conv7',
+        )
+        BRDF_conv8 = conv2upconcat(
+            BRDF_conv7,
+            conv2,
+            output_channel=channel * 2,
+            scope=f'{light_ext}g_conv8',
+        )
+        BRDF_conv9 = conv2upconcat(
+            BRDF_conv8,
+            conv1,
+            output_channel=channel,
+            scope=f'{light_ext}g_conv9',
+        )
+        pred_reflect = slim.conv2d(
+            BRDF_conv9,
+            3,
+            kernel_size=3,
+            activation_fn=None,
+            weights_initializer=ini,
+            scope=f'{light_ext}g_conv9_3',
+        )
 
     with tf.variable_scope('normal'):
         conv6 = conv2upconcat(conv5, conv4, output_channel=channel * 8, scope='g_conv6')
@@ -148,33 +230,167 @@ def UNet_2decoders(input, channel=32, output_channel=3, directions=4, reuse=Fals
 def UNet(input, channel=32, output_channel=3,reuse=False,ext=""):
     if reuse:
         tf.get_variable_scope().reuse_variables()
-    conv1=slim.conv2d(input,channel,[1,1], rate=1, activation_fn=lrelu, scope=ext+'g_conv1_1')
-    conv1=slim.conv2d(conv1,channel,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv1_2')
+    conv1 = slim.conv2d(
+        input,
+        channel,
+        [1, 1],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv1_1',
+    )
+    conv1 = slim.conv2d(
+        conv1,
+        channel,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv1_2',
+    )
     pool1=slim.max_pool2d(conv1, [2, 2], padding='same' )
-    conv2=slim.conv2d(pool1,channel*2,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv2_1')
-    conv2=slim.conv2d(conv2,channel*2,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv2_2')
+    conv2 = slim.conv2d(
+        pool1,
+        channel * 2,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv2_1',
+    )
+    conv2 = slim.conv2d(
+        conv2,
+        channel * 2,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv2_2',
+    )
     pool2=slim.max_pool2d(conv2, [2, 2], padding='same' )
-    conv3=slim.conv2d(pool2,channel*4,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv3_1')
-    conv3=slim.conv2d(conv3,channel*4,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv3_2')
+    conv3 = slim.conv2d(
+        pool2,
+        channel * 4,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv3_1',
+    )
+    conv3 = slim.conv2d(
+        conv3,
+        channel * 4,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv3_2',
+    )
     pool3=slim.max_pool2d(conv3, [2, 2], padding='same' )
-    conv4=slim.conv2d(pool3,channel*8,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv4_1')
-    conv4=slim.conv2d(conv4,channel*8,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv4_2')
+    conv4 = slim.conv2d(
+        pool3,
+        channel * 8,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv4_1',
+    )
+    conv4 = slim.conv2d(
+        conv4,
+        channel * 8,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv4_2',
+    )
     pool4=slim.max_pool2d(conv4, [2, 2], padding='same' )
-    conv5=slim.conv2d(pool4,channel*16,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv5_1')
-    conv5=slim.conv2d(conv5,channel*16,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv5_2')
+    conv5 = slim.conv2d(
+        pool4,
+        channel * 16,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv5_1',
+    )
+    conv5 = slim.conv2d(
+        conv5,
+        channel * 16,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv5_2',
+    )
 
-    up6 =  bilinear_up_and_concat( conv5, conv4, channel*8, channel*16, scope=ext+"g_up_1" )
-    conv6=slim.conv2d(up6,  channel*8,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv6_1')
-    conv6=slim.conv2d(conv6,channel*8,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv6_2')
-    up7 =  bilinear_up_and_concat( conv6, conv3, channel*4, channel*8, scope=ext+"g_up_2" )
-    conv7=slim.conv2d(up7,  channel*4,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv7_1')
-    conv7=slim.conv2d(conv7,channel*4,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv7_2')
-    up8 =  bilinear_up_and_concat( conv7, conv2, channel*2, channel*4, scope=ext+"g_up_3" )
-    conv8=slim.conv2d(up8,  channel*2,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv8_1')
-    conv8=slim.conv2d(conv8,channel*2,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv8_2')
-    up9 =  bilinear_up_and_concat( conv8, conv1, channel, channel*2, scope=ext+"g_up_4" )
-    conv9=slim.conv2d(up9,  channel,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv9_1')
-    conv9=slim.conv2d(conv9, output_channel,[3,3], rate=1, activation_fn=None,  scope=ext+'g_conv9_2')
+    up6 = bilinear_up_and_concat(
+        conv5, conv4, channel * 8, channel * 16, scope=f"{ext}g_up_1"
+    )
+    conv6 = slim.conv2d(
+        up6,
+        channel * 8,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv6_1',
+    )
+    conv6 = slim.conv2d(
+        conv6,
+        channel * 8,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv6_2',
+    )
+    up7 = bilinear_up_and_concat(
+        conv6, conv3, channel * 4, channel * 8, scope=f"{ext}g_up_2"
+    )
+    conv7 = slim.conv2d(
+        up7,
+        channel * 4,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv7_1',
+    )
+    conv7 = slim.conv2d(
+        conv7,
+        channel * 4,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv7_2',
+    )
+    up8 = bilinear_up_and_concat(
+        conv7, conv2, channel * 2, channel * 4, scope=f"{ext}g_up_3"
+    )
+    conv8 = slim.conv2d(
+        up8,
+        channel * 2,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv8_1',
+    )
+    conv8 = slim.conv2d(
+        conv8,
+        channel * 2,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv8_2',
+    )
+    up9 = bilinear_up_and_concat(
+        conv8, conv1, channel, channel * 2, scope=f"{ext}g_up_4"
+    )
+    conv9 = slim.conv2d(
+        up9,
+        channel,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv9_1',
+    )
+    conv9 = slim.conv2d(
+        conv9,
+        output_channel,
+        [3, 3],
+        rate=1,
+        activation_fn=None,
+        scope=f'{ext}g_conv9_2',
+    )
 
     return conv9
 
@@ -182,40 +398,188 @@ def UNet(input, channel=32, output_channel=3,reuse=False,ext=""):
 def UNet_SE(input, channel=32, output_channel=3,reuse=False,ext=""):
     if reuse:
         tf.get_variable_scope().reuse_variables()
-    conv1=slim.conv2d(input,channel,[1,1], rate=1, activation_fn=lrelu, scope=ext+'g_conv1_1')
-    conv1=slim.conv2d(conv1,channel,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv1_2')
+    conv1 = slim.conv2d(
+        input,
+        channel,
+        [1, 1],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv1_1',
+    )
+    conv1 = slim.conv2d(
+        conv1,
+        channel,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv1_2',
+    )
     pool1=slim.max_pool2d(conv1, [2, 2], padding='same' )
-    conv2=slim.conv2d(pool1,channel*2,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv2_1')
-    conv2=slim.conv2d(conv2,channel*2,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv2_2')
+    conv2 = slim.conv2d(
+        pool1,
+        channel * 2,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv2_1',
+    )
+    conv2 = slim.conv2d(
+        conv2,
+        channel * 2,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv2_2',
+    )
     pool2=slim.max_pool2d(conv2, [2, 2], padding='same' )
-    conv3=slim.conv2d(pool2,channel*4,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv3_1')
-    conv3=slim.conv2d(conv3,channel*4,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv3_2')
+    conv3 = slim.conv2d(
+        pool2,
+        channel * 4,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv3_1',
+    )
+    conv3 = slim.conv2d(
+        conv3,
+        channel * 4,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv3_2',
+    )
     pool3=slim.max_pool2d(conv3, [2, 2], padding='same' )
-    conv4=slim.conv2d(pool3,channel*8,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv4_1')
-    conv4=slim.conv2d(conv4,channel*8,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv4_2')
+    conv4 = slim.conv2d(
+        pool3,
+        channel * 8,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv4_1',
+    )
+    conv4 = slim.conv2d(
+        conv4,
+        channel * 8,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv4_2',
+    )
     pool4=slim.max_pool2d(conv4, [2, 2], padding='same' )
-    conv5=slim.conv2d(pool4,channel*16,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv5_1')
-    conv5=slim.conv2d(conv5,channel*16,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv5_2')
+    conv5 = slim.conv2d(
+        pool4,
+        channel * 16,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv5_1',
+    )
+    conv5 = slim.conv2d(
+        conv5,
+        channel * 16,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv5_2',
+    )
 
-    conv5=slim.conv2d(conv5, channel*16,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv5_3')
+    conv5 = slim.conv2d(
+        conv5,
+        channel * 16,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv5_3',
+    )
     global_pooling = tf.reduce_mean(conv5, axis=[0,1,2], keep_dims=True)
-    se = slim.fully_connected(global_pooling, channel, activation_fn=tf.nn.relu, scope = ext+'g_fc1')
-    ex = slim.fully_connected(global_pooling, channel * 16, activation_fn=tf.nn.relu, scope = ext+'g_fc2')
+    se = slim.fully_connected(
+        global_pooling, channel, activation_fn=tf.nn.relu, scope=f'{ext}g_fc1'
+    )
+    ex = slim.fully_connected(
+        global_pooling,
+        channel * 16,
+        activation_fn=tf.nn.relu,
+        scope=f'{ext}g_fc2',
+    )
     attention_channel = tf.nn.sigmoid(ex)
     conv5 = conv5 * attention_channel
 
-    up6 =  bilinear_up_and_concat( conv5, conv4, channel*8, channel*16, scope=ext+"g_up_1" )
-    conv6=slim.conv2d(up6,  channel*8,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv6_1')
-    conv6=slim.conv2d(conv6,channel*8,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv6_2')
-    up7 =  bilinear_up_and_concat( conv6, conv3, channel*4, channel*8, scope=ext+"g_up_2" )
-    conv7=slim.conv2d(up7,  channel*4,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv7_1')
-    conv7=slim.conv2d(conv7,channel*4,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv7_2')
-    up8 =  bilinear_up_and_concat( conv7, conv2, channel*2, channel*4, scope=ext+"g_up_3" )
-    conv8=slim.conv2d(up8,  channel*2,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv8_1')
-    conv8=slim.conv2d(conv8,channel*2,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv8_2')
-    up9 =  bilinear_up_and_concat( conv8, conv1, channel, channel*2, scope=ext+"g_up_4" )
-    conv9=slim.conv2d(up9,  channel,[3,3], rate=1, activation_fn=lrelu, scope=ext+'g_conv9_1')
-    conv9=slim.conv2d(conv9, output_channel,[3,3], rate=1, activation_fn=None,  scope=ext+'g_conv9_2')
+    up6 = bilinear_up_and_concat(
+        conv5, conv4, channel * 8, channel * 16, scope=f"{ext}g_up_1"
+    )
+    conv6 = slim.conv2d(
+        up6,
+        channel * 8,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv6_1',
+    )
+    conv6 = slim.conv2d(
+        conv6,
+        channel * 8,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv6_2',
+    )
+    up7 = bilinear_up_and_concat(
+        conv6, conv3, channel * 4, channel * 8, scope=f"{ext}g_up_2"
+    )
+    conv7 = slim.conv2d(
+        up7,
+        channel * 4,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv7_1',
+    )
+    conv7 = slim.conv2d(
+        conv7,
+        channel * 4,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv7_2',
+    )
+    up8 = bilinear_up_and_concat(
+        conv7, conv2, channel * 2, channel * 4, scope=f"{ext}g_up_3"
+    )
+    conv8 = slim.conv2d(
+        up8,
+        channel * 2,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv8_1',
+    )
+    conv8 = slim.conv2d(
+        conv8,
+        channel * 2,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv8_2',
+    )
+    up9 = bilinear_up_and_concat(
+        conv8, conv1, channel, channel * 2, scope=f"{ext}g_up_4"
+    )
+    conv9 = slim.conv2d(
+        up9,
+        channel,
+        [3, 3],
+        rate=1,
+        activation_fn=lrelu,
+        scope=f'{ext}g_conv9_1',
+    )
+    conv9 = slim.conv2d(
+        conv9,
+        output_channel,
+        [3, 3],
+        rate=1,
+        activation_fn=None,
+        scope=f'{ext}g_conv9_2',
+    )
 
     return conv9
 

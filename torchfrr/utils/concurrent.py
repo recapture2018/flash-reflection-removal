@@ -32,7 +32,7 @@ async def batch_gpu_cmd(cmdls, gpus=(1, 2, 3), num_proc=2):
         cmd_queue.put_nowait(cmd)
 
     workers = []
-    for i in range(len(gpus) * num_proc):
+    for _ in range(len(gpus) * num_proc):
         worker = asyncio.create_task(gpu_cmd_worker(cmd_queue, gpu_queue))
         workers.append(worker)
 

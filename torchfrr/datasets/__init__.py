@@ -16,9 +16,9 @@ def build_dataset(name, cfg, trans=[]):
 
     if 'transforms' in cfg.keys():
         trans = get_transforms(cfg.transforms) + trans
-    ds = DATASETS[cfg.dataset_type](
-        name=name, transform=Compose(trans), **cfg.dataset_args)
-    return ds
+    return DATASETS[cfg.dataset_type](
+        name=name, transform=Compose(trans), **cfg.dataset_args
+    )
 
 
 def get_datasets(cfg, phases):

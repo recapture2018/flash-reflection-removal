@@ -34,15 +34,14 @@ def detect_shadow(ambient, flashonly):
     intensity_flashonly = tf.norm(flashonly, axis=3, keepdims=True)
     ambient_ratio = intensity_ambient / tf.reduce_mean(intensity_ambient)
     flashonly_ratio = intensity_flashonly / tf.reduce_mean(intensity_flashonly)
-    
+
     # Dark in PF but not dark in F
     pf_div_by_ambient = flashonly_ratio / (ambient_ratio+1e-5)
     shadow_mask = tf.cast(tf.less(pf_div_by_ambient, 0.8), tf.float32)
-    
+
     # Cannot be too bright in flashonly
     dark_mask = tf.cast(tf.less(intensity_flashonly, 0.3), tf.float32)
-    mask = dark_mask * shadow_mask
-    return mask
+    return dark_mask * shadow_mask
 
 
 # exit()
@@ -69,21 +68,21 @@ config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 sess = tf.Session(config=config)
 sess.run(tf.global_variables_initializer())
-var_restore = [v for v in tf.trainable_variables()]
+var_restore = list(tf.trainable_variables())
 saver_restore = tf.train.Saver(var_restore)
-ckpt = tf.train.get_checkpoint_state('./ckpt/'+model)
+ckpt = tf.train.get_checkpoint_state(f'./ckpt/{model}')
 ######### Session #########
 
 
 print("[i] contain checkpoint: ", ckpt)
 if ckpt and continue_training:
-    saver_restore=tf.train.Saver([var for var in tf.trainable_variables()])
-    print('loaded '+ckpt.model_checkpoint_path)
+    saver_restore = tf.train.Saver(list(tf.trainable_variables()))
+    print(f'loaded {ckpt.model_checkpoint_path}')
     saver_restore.restore(sess,ckpt.model_checkpoint_path)
 
 
-data_dir = "{}/others".format(ARGS.testset)
-data_names = sorted(glob(data_dir+"/*ambient.jpg"))
+data_dir = f"{ARGS.testset}/others"
+data_names = sorted(glob(f"{data_dir}/*ambient.jpg"))
 
 def crop_shape(tmp_all, size=32):
     h,w = tmp_all.shape[1:3]
@@ -94,13 +93,13 @@ def crop_shape(tmp_all, size=32):
 num_test = len(data_names)
 print(num_test)
 for epoch in range(9999, 10000):
-    print("Processing epoch %d"%epoch, "./ckpt/%s/%s"%(model,data_dir.split("/")[-2]))
+    print("Processing epoch %d"%epoch, f'./ckpt/{model}/{data_dir.split("/")[-2]}')
     # save model and images every epoch
-    save_dir = "./ckpt/%s/%s"%(model,data_dir.split("/")[-2])
+    save_dir = f'./ckpt/{model}/{data_dir.split("/")[-2]}'
     if not os.path.isdir(save_dir):
         os.makedirs(save_dir)
 
-    print("output path: {}".format(save_dir))
+    print(f"output path: {save_dir}")
     all_loss_test=np.zeros(num_test, dtype=float)
     metrics = {"T_ssim":0,"T_psnr":0,"R_ssim":0, "R_psnr":0}
     fetch_list=[transmission_layer, reflection_layer, input_ambient, input_flash, input_pureflash, bad_mask]
@@ -114,7 +113,7 @@ for epoch in range(9999, 10000):
         pred_image_t, pred_image_r, in_ambient, in_flash, in_pureflash, pred_mask = sess.run(fetch_list,
             feed_dict={input_ambient:tmp_ambient, input_pureflash:tmp_pureflash, input_flash: tmp_flash})
         # print("Epc: %3d, shape of outputs: "%epoch, pred_image_t.shape, pred_image_r.shape)
-        save_path = "{}/{}".format(save_dir, data_names[id].split("/")[-1])
+        save_path = f'{save_dir}/{data_names[id].split("/")[-1]}'
         imsave(save_path.replace("ambient.jpg", "_0_input_ambient.png"), np.uint8(tmp_ambient[0].clip(0,1) * 255.))
         imsave(save_path.replace("ambient.jpg", "_1_pred_transmission.png"), np.uint8(pred_image_t[0].clip(0,1) * 255.))
         # imsave(save_path.replace("ambient.jpg", "_2_pred_refletion.png"), np.uint8(pred_image_r[0].clip(0,1) * 255.))

@@ -54,9 +54,11 @@ def build_vgg19(input,reuse=False):
     with tf.variable_scope("vgg19"):
         if reuse:
             tf.get_variable_scope().reuse_variables()
-        net={}
         vgg_layers=vgg_path['layers'][0]
-        net['input']=input-np.array([123.6800, 116.7790, 103.9390]).reshape((1,1,1,3))
+        net = {
+            'input': input
+            - np.array([123.6800, 116.7790, 103.9390]).reshape((1, 1, 1, 3))
+        }
         net['conv1_1']=build_net('conv',net['input'],get_weight_bias(vgg_layers,0),name='vgg_conv1_1')
         net['conv1_2']=build_net('conv',net['conv1_1'],get_weight_bias(vgg_layers,2),name='vgg_conv1_2')
         net['pool1']=build_net('pool',net['conv1_2'])
